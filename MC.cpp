@@ -1,14 +1,13 @@
 
-// Equity option Heston
+// Equity option Monte Carlo
 
 #include <ql/instruments/vanillaoption.hpp>
 #include <ql/termstructures/yield/flatforward.hpp>
-#include <ql/termstructures/volatility/equityfx/blackconstantvol.hpp>
-#include <ql/quotes/simplequote.hpp>
-#include <ql/pricingengines/vanilla/analyticeuropeanengine.hpp>
-#include <ql/pricingengines/vanilla/analytichestonengine.hpp>
+#include <ql/pricingengines/vanilla/mceuropeanengine.hpp>
+#include <ql/pricingengines/vanilla/mcamericanengine.hpp>
 #include <ql/time/calendars/target.hpp>
 #include <ql/utilities/dataformatters.hpp>
+
 
 #include <iostream>
 #include <iomanip>
@@ -98,10 +97,18 @@ int main(int, char* []) {
         VanillaOption bermudanOption(payoff, bermudanExercise);
         VanillaOption americanOption(payoff, americanExercise);
 
-        // Black-Scholes for European
-        method = "Black-Scholes";
-        europeanOption.setPricingEngine(boost::shared_ptr<PricingEngine>(
-                                     new AnalyticEuropeanEngine(bsmProcess)));
+
+        // Monte Carlo Method: MC (crude)
+        Size timeSteps = 1;
+        method = "MC (crude)";
+        Size mcSeed = 42;
+        boost::shared_ptr<PricingEngine> mcengine1;
+        mcengine1 = MakeMCEuropeanEngine<PseudoRandom>(bsmProcess)
+            .withSteps(timeSteps)
+            .withAbsoluteTolerance(0.02)
+            .withSeed(mcSeed);
+        europeanOption.setPricingEngine(mcengine1);
+        // Real errorEstimate = europeanOption.errorEstimate();
         std::cout << std::setw(widths[0]) << std::left << method
                   << std::fixed
                   << std::setw(widths[1]) << std::left << europeanOption.NPV()
@@ -109,23 +116,41 @@ int main(int, char* []) {
                   << std::setw(widths[3]) << std::left << "N/A"
                   << std::endl;
 
-        // semi-analytic Heston for European
-        method = "Heston semi-analytic";
-        boost::shared_ptr<HestonProcess> hestonProcess(
-            new HestonProcess(flatTermStructure, flatDividendTS,
-                              underlyingH, volatility*volatility,
-                              1.0, volatility*volatility, 0.001, 0.0));
-        boost::shared_ptr<HestonModel> hestonModel(
-                                              new HestonModel(hestonProcess));
-        europeanOption.setPricingEngine(boost::shared_ptr<PricingEngine>(
-                                     new AnalyticHestonEngine(hestonModel)));
+
+        // Monte Carlo Method: QMC (Sobol)
+        method = "QMC (Sobol)";
+        Size nSamples = 32768;  // 2^15
+
+        boost::shared_ptr<PricingEngine> mcengine2;
+        mcengine2 = MakeMCEuropeanEngine<LowDiscrepancy>(bsmProcess)
+            .withSteps(timeSteps)
+            .withSamples(nSamples);
+        europeanOption.setPricingEngine(mcengine2);
         std::cout << std::setw(widths[0]) << std::left << method
                   << std::fixed
                   << std::setw(widths[1]) << std::left << europeanOption.NPV()
                   << std::setw(widths[2]) << std::left << "N/A"
                   << std::setw(widths[3]) << std::left << "N/A"
                   << std::endl;
- 
+
+        // Monte Carlo Method: MC (Longstaff Schwartz)
+        method = "MC (Longstaff Schwartz)";
+        boost::shared_ptr<PricingEngine> mcengine3;
+        mcengine3 = MakeMCAmericanEngine<PseudoRandom>(bsmProcess)
+            .withSteps(100)
+            .withAntitheticVariate()
+            .withCalibrationSamples(4096)
+            .withAbsoluteTolerance(0.02)
+            .withSeed(mcSeed);
+        americanOption.setPricingEngine(mcengine3);
+        std::cout << std::setw(widths[0]) << std::left << method
+                  << std::fixed
+                  << std::setw(widths[1]) << std::left << "N/A"
+                  << std::setw(widths[2]) << std::left << "N/A"
+                  << std::setw(widths[3]) << std::left << americanOption.NPV()
+                  << std::endl;
+
+        
         return 0;
 
     } catch (std::exception& e) {

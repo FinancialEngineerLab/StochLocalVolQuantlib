@@ -1,12 +1,13 @@
 
-// Equity option Heston
+// Equity option Finite Differences
 
 #include <ql/instruments/vanillaoption.hpp>
 #include <ql/termstructures/yield/flatforward.hpp>
 #include <ql/termstructures/volatility/equityfx/blackconstantvol.hpp>
 #include <ql/quotes/simplequote.hpp>
-#include <ql/pricingengines/vanilla/analyticeuropeanengine.hpp>
-#include <ql/pricingengines/vanilla/analytichestonengine.hpp>
+#include <ql/pricingengines/vanilla/fdeuropeanengine.hpp>
+#include <ql/pricingengines/vanilla/fdbermudanengine.hpp>
+#include <ql/pricingengines/vanilla/fdamericanengine.hpp>
 #include <ql/time/calendars/target.hpp>
 #include <ql/utilities/dataformatters.hpp>
 
@@ -98,34 +99,25 @@ int main(int, char* []) {
         VanillaOption bermudanOption(payoff, bermudanExercise);
         VanillaOption americanOption(payoff, americanExercise);
 
-        // Black-Scholes for European
-        method = "Black-Scholes";
+        // Finite differences
+        Size timeSteps = 801;
+        method = "Finite differences";
         europeanOption.setPricingEngine(boost::shared_ptr<PricingEngine>(
-                                     new AnalyticEuropeanEngine(bsmProcess)));
+                 new FDEuropeanEngine<CrankNicolson>(bsmProcess,
+                                                     timeSteps,timeSteps-1)));
+        bermudanOption.setPricingEngine(boost::shared_ptr<PricingEngine>(
+                 new FDBermudanEngine<CrankNicolson>(bsmProcess,
+                                                     timeSteps,timeSteps-1)));
+        americanOption.setPricingEngine(boost::shared_ptr<PricingEngine>(
+                 new FDAmericanEngine<CrankNicolson>(bsmProcess,
+                                                     timeSteps,timeSteps-1)));
         std::cout << std::setw(widths[0]) << std::left << method
                   << std::fixed
                   << std::setw(widths[1]) << std::left << europeanOption.NPV()
-                  << std::setw(widths[2]) << std::left << "N/A"
-                  << std::setw(widths[3]) << std::left << "N/A"
+                  << std::setw(widths[2]) << std::left << bermudanOption.NPV()
+                  << std::setw(widths[3]) << std::left << americanOption.NPV()
                   << std::endl;
 
-        // semi-analytic Heston for European
-        method = "Heston semi-analytic";
-        boost::shared_ptr<HestonProcess> hestonProcess(
-            new HestonProcess(flatTermStructure, flatDividendTS,
-                              underlyingH, volatility*volatility,
-                              1.0, volatility*volatility, 0.001, 0.0));
-        boost::shared_ptr<HestonModel> hestonModel(
-                                              new HestonModel(hestonProcess));
-        europeanOption.setPricingEngine(boost::shared_ptr<PricingEngine>(
-                                     new AnalyticHestonEngine(hestonModel)));
-        std::cout << std::setw(widths[0]) << std::left << method
-                  << std::fixed
-                  << std::setw(widths[1]) << std::left << europeanOption.NPV()
-                  << std::setw(widths[2]) << std::left << "N/A"
-                  << std::setw(widths[3]) << std::left << "N/A"
-                  << std::endl;
- 
         return 0;
 
     } catch (std::exception& e) {

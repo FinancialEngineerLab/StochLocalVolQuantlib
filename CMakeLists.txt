@@ -3,8 +3,6 @@ project(slv)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(SOURCE_FILES SemiAnalyticHeston.cpp)
-
 SET(OPTIMIZE_FLAGS "-O2")
 # SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
 # SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov")
@@ -22,5 +20,11 @@ if(Boost_FOUND)
 endif()
 
 
-add_executable(sah ${SOURCE_FILES})
+add_executable(sah SemiAnalyticHeston.cpp)
 target_link_libraries(sah ${Boost_LIBRARIES} QuantLib)
+
+add_executable(mc MC.cpp)
+target_link_libraries(mc ${Boost_LIBRARIES} QuantLib)
+
+add_executable(fd FD.cpp)
+target_link_libraries(fd ${Boost_LIBRARIES} QuantLib)
