@@ -1,5 +1,5 @@
 
-// Equity option with different
+// Equity option with different pricing engines
 
 #include <ql/instruments/vanillaoption.hpp>
 #include <ql/pricingengines/vanilla/binomialengine.hpp>
